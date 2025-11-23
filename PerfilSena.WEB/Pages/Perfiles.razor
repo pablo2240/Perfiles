@@ -1,0 +1,191 @@
+﻿@page "/perfiles"
+@inject IPabloReyesService PabloReyesService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Perfiles - PerfilSena</PageTitle>
+
+<div class="perfiles-container">
+    <div class="perfiles-header">
+        <h2>Perfiles</h2>
+        <button class="btn-nuevo" @onclick="MostrarModal">
+            <span>+</span> Nuevo Perfil
+        </button>
+    </div>
+
+    @if (perfiles == null)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando perfiles...</p>
+        </div>
+    }
+    else if (!perfiles.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <h3>No hay perfiles creados</h3>
+            <p>Crea tu primer perfil para comenzar</p>
+            <button class="btn-crear-primero" @onclick="MostrarModal">Crear Perfil</button>
+        </div>
+    }
+    else
+    {
+        <div class="perfiles-grid">
+            @foreach (var perfil in perfiles)
+            {
+                <div class="perfil-card @(perfilSeleccionado?.Id == perfil.Id ? "selected" : "")"
+                     @onclick="() => SeleccionarPerfil(perfil)">
+                    <div class="perfil-imagen-wrapper">
+                        @if (!string.IsNullOrEmpty(perfil.Imagen))
+                        {
+                            @* CAMBIO CRÍTICO: URL completa con http://localhost:5134/ *@
+                            <img src="http://localhost:5134/@perfil.Imagen"
+                                 alt="@perfil.Nombre"
+                                 class="perfil-img"
+                                 @onerror="HandleImageError" />
+                        }
+                        else
+                        {
+                            <div class="perfil-sin-imagen">
+                                <span>👤</span>
+                            </div>
+                        }
+                    </div>
+                    <p class="perfil-nombre">@perfil.Nombre</p>
+                    <p class="perfil-fecha">@perfil.FechaCreacion.ToString("dd/MM/yyyy")</p>
+                </div>
+            }
+        </div>
+
+        @if (perfilSeleccionado != null)
+        {
+            <div class="perfil-detalle">
+                <div class="detalle-header">
+                    <h3>Perfil Seleccionado</h3>
+                    <button class="btn-cerrar" @onclick="CerrarDetalle">×</button>
+                </div>
+                <div class="detalle-content">
+                    <div class="detalle-imagen">
+                        @if (!string.IsNullOrEmpty(perfilSeleccionado.Imagen))
+                        {
+                            <img src="http://localhost:5134/@perfilSeleccionado.Imagen"
+                                 alt="@perfilSeleccionado.Nombre"
+                                 @onerror="HandleImageError" />
+                        }
+                        else
+                        {
+                            <div class="placeholder">👤</div>
+                        }
+                    </div>
+                    <div class="detalle-info">
+                        <div class="info-item">
+                            <span class="info-label">Nombre:</span>
+                            <span class="info-value">@perfilSeleccionado.Nombre</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Teléfono:</span>
+                            <span class="info-value">@perfilSeleccionado.Telefono</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Dirección:</span>
+                            <span class="info-value">@perfilSeleccionado.Direccion</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Imagen:</span>
+                            <span class="info-value">@(perfilSeleccionado.Imagen ?? "Sin imagen")</span>
+                        </div>
+                        <button class="btn-chat" @onclick="IrAChat">
+                            💬 Ver Comentarios
+                        </button>
+                        <button class="btn-eliminar" @onclick="EliminarPerfil">
+                            🗑️ Eliminar Perfil
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<PerfilModal IsVisible="mostrarModal"
+             OnClose="OcultarModal"
+             OnPerfilCreado="CargarPerfiles" />
+
+@code {
+    private List<Pabloreyes>? perfiles;
+    private Pabloreyes? perfilSeleccionado;
+    private bool mostrarModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarPerfiles();
+    }
+
+    private async Task CargarPerfiles()
+    {
+        Console.WriteLine("🔄 Cargando perfiles...");
+        perfiles = await PabloReyesService.ObtenerTodosAsync();
+        Console.WriteLine($"✅ {perfiles?.Count ?? 0} perfiles cargados");
+
+        if (perfiles != null)
+        {
+            foreach (var p in perfiles)
+            {
+                Console.WriteLine($"   - {p.Nombre}: {p.Imagen ?? "sin imagen"}");
+            }
+        }
+    }
+
+    private void SeleccionarPerfil(Pabloreyes perfil)
+    {
+        perfilSeleccionado = perfil;
+        Console.WriteLine($"👤 Perfil seleccionado: {perfil.Nombre}");
+    }
+
+    private void CerrarDetalle()
+    {
+        perfilSeleccionado = null;
+    }
+
+    private void MostrarModal()
+    {
+        mostrarModal = true;
+    }
+
+    private async Task OcultarModal()
+    {
+        mostrarModal = false;
+        await Task.CompletedTask;
+    }
+
+    private void IrAChat()
+    {
+        if (perfilSeleccionado != null)
+        {
+            Navigation.NavigateTo($"/chat/{perfilSeleccionado.Id}");
+        }
+    }
+
+    private async Task EliminarPerfil()
+    {
+        if (perfilSeleccionado != null)
+        {
+            var confirmado = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar el perfil de {perfilSeleccionado.Nombre}?");
+            if (confirmado)
+            {
+                var resultado = await PabloReyesService.EliminarAsync(perfilSeleccionado.Id);
+                if (resultado)
+                {
+                    perfilSeleccionado = null;
+                    await CargarPerfiles();
+                }
+            }
+        }
+    }
+
+    private void HandleImageError()
+    {
+        Console.WriteLine("❌ Error al cargar imagen");
+    }
+}

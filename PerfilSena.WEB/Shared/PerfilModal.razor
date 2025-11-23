@@ -1,0 +1,188 @@
+﻿@inject IPabloReyesService PabloReyesService
+
+<div class="modal @(IsVisible ? "show" : "")" @onclick="Cerrar">
+    <div class="modal-content" @onclick:stopPropagation>
+        <div class="modal-header">
+            <h3>Crear Perfil</h3>
+            <button class="close-btn" @onclick="Cerrar">&times;</button>
+        </div>
+
+        <div class="modal-body">
+
+            <!-- Imagen -->
+            <div class="perfil-imagen-container">
+                @if (imagenPreview != null)
+                {
+                    <img src="@imagenPreview" class="perfil-img-preview" />
+                }
+                else
+                {
+                    <div class="perfil-placeholder">
+                        <span>📷</span>
+                    </div>
+                }
+
+                <InputFile OnChange="CargarImagen" accept="image/*" class="input-imagen" id="inputImagen" />
+                <label for="inputImagen" class="btn-cambiar-imagen">Cambiar imagen</label>
+            </div>
+
+            <!-- Nombre -->
+            <div class="form-group">
+                <label>Nombre</label>
+                <input @bind="nombre" placeholder="Ingrese el nombre"
+                       maxlength="50" class="input-field" />
+                <span class="char-count">@nombre.Length/50</span>
+            </div>
+
+            <!-- Telefono -->
+            <div class="form-group">
+                <label>Teléfono</label>
+                <input @bind="telefono" placeholder="Ingrese el teléfono"
+                       maxlength="50" class="input-field" />
+                <span class="char-count">@telefono.Length/50</span>
+            </div>
+
+            <!-- Dirección -->
+            <div class="form-group">
+                <label>Dirección</label>
+                <input @bind="direccion" placeholder="Ingrese la dirección"
+                       maxlength="50" class="input-field" />
+                <span class="char-count">@direccion.Length/50</span>
+            </div>
+
+            <!-- Error -->
+            @if (!string.IsNullOrWhiteSpace(mensajeError))
+            {
+                <div class="mensaje-error">@mensajeError</div>
+            }
+
+            <!-- Botón crear -->
+            <button @onclick="CrearPerfil" class="btn-crear" disabled="@creando">
+                @if (creando)
+                {
+                    <span>Creando...</span>
+                }
+                else
+                {
+                    <span>Crear Perfil</span>
+                }
+            </button>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnPerfilCreado { get; set; }
+
+    private string nombre = "";
+    private string telefono = "";
+    private string direccion = "";
+    private byte[]? imagenBytes;
+    private string? imagenNombre;
+    private string? imagenPreview;
+    private string mensajeError = "";
+    private bool creando = false;
+
+    // ============================
+    //     Cargar Imagen
+    // ============================
+    private async Task CargarImagen(InputFileChangeEventArgs e)
+    {
+        mensajeError = "";
+        var imagen = e.File;
+
+        if (imagen is null)
+            return;
+
+        if (imagen.Size > 5 * 1024 * 1024)
+        {
+            mensajeError = "La imagen no puede ser mayor a 5MB";
+            return;
+        }
+
+        try
+        {
+            using var stream = imagen.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            imagenBytes = ms.ToArray();
+            imagenNombre = imagen.Name;
+            imagenPreview = $"data:{imagen.ContentType};base64,{Convert.ToBase64String(imagenBytes)}";
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al cargar la imagen: {ex.Message}";
+        }
+    }
+
+    // ============================
+    //     Crear Perfil
+    // ============================
+    private async Task CrearPerfil()
+    {
+        mensajeError = "";
+
+        // Validación mínima
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            mensajeError = "El nombre es requerido";
+            return;
+        }
+
+        creando = true;
+
+        try
+        {
+            var pabloreyes = new Pabloreyes
+            {
+                Nombre = nombre.Trim(),
+                Telefono = telefono.Trim(),
+                Direccion = direccion.Trim()
+            };
+
+            var resultado = await PabloReyesService.CrearAsync(pabloreyes, imagenBytes, imagenNombre);
+
+            if (resultado != null)
+            {
+                // Notificar al padre que se creó
+                await OnPerfilCreado.InvokeAsync();
+
+                // Cerrar modal
+                await Cerrar();
+            }
+            else
+            {
+                mensajeError = "Error al crear el perfil. Intente nuevamente.";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            creando = false;
+        }
+    }
+
+    // ============================
+    //     Cerrar Modal
+    // ============================
+    private async Task Cerrar()
+    {
+        nombre = "";
+        telefono = "";
+        direccion = "";
+        imagenBytes = null;
+        imagenNombre = null;
+        imagenPreview = null;
+        mensajeError = "";
+        creando = false;
+
+        await OnClose.InvokeAsync();
+    }
+}

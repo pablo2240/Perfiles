@@ -1,0 +1,123 @@
+﻿@page "/"
+
+<PageTitle>Inicio - PerfilSena</PageTitle>
+
+<div class="home-container">
+    <div class="hero-section">
+        <div class="logo-circle">
+            <span>📱</span>
+        </div>
+        <h1>Bienvenido a PerfilSena</h1>
+        <p class="subtitle">Crea perfiles y conecta con otros usuarios</p>
+        <a href="/perfiles" class="btn-primary">Comenzar</a>
+    </div>
+
+    <div class="features">
+        <div class="feature-card">
+            <div class="feature-icon">👤</div>
+            <h3>Crea Perfiles</h3>
+            <p>Agrega información personal y fotos de perfil</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">💬</div>
+            <h3>Envía Comentarios</h3>
+            <p>Comunícate con otros perfiles</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🎨</div>
+            <h3>Diseño Moderno</h3>
+            <p>Interfaz inspirada en Instagram</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .home-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+
+    .hero-section {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .logo-circle {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 30px;
+        background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 64px;
+    }
+
+    .hero-section h1 {
+        font-size: 48px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: #262626;
+    }
+
+    .subtitle {
+        font-size: 20px;
+        color: #8e8e8e;
+        margin-bottom: 32px;
+    }
+
+    .btn-primary {
+        display: inline-block;
+        padding: 14px 48px;
+        background: #0095f6;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 16px;
+        transition: background 0.2s;
+    }
+
+    .btn-primary:hover {
+        background: #0081d8;
+    }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        margin-top: 60px;
+    }
+
+    .feature-card {
+        text-align: center;
+        padding: 40px 20px;
+        background: white;
+        border: 1px solid #dbdbdb;
+        border-radius: 12px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .feature-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+    }
+
+    .feature-card h3 {
+        font-size: 24px;
+        margin-bottom: 12px;
+        color: #262626;
+    }
+
+    .feature-card p {
+        color: #8e8e8e;
+        font-size: 16px;
+    }
+</style>

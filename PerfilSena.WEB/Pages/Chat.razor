@@ -1,0 +1,228 @@
+﻿@page "/chat/{PerfilId:int}"
+@inject IPabloReyesService PabloReyesService
+@inject IComentarioService ComentarioService
+@inject NavigationManager Navigation
+
+<PageTitle>Chat - PerfilSena</PageTitle>
+
+<div class="chat-container">
+    @if (perfilActual == null || perfiles == null)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Cargando...</p>
+        </div>
+    }
+    else
+    {
+        <div class="chat-header">
+            <button class="btn-back" @onclick="Volver">←</button>
+            <div class="header-perfil">
+                @if (!string.IsNullOrEmpty(perfilActual.Imagen))
+                {
+                    <img src="http://localhost:5134/@perfilActual.Imagen" alt="@perfilActual.Nombre" class="header-img" />
+                }
+                else
+                {
+                    <div class="header-placeholder">👤</div>
+                }
+                <div>
+                    <h3>@perfilActual.Nombre</h3>
+                    <p class="status">@perfilActual.Telefono</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-sidebar">
+            <h4>Seleccionar destinatario</h4>
+            @foreach (var perfil in perfiles.Where(p => p.Id != PerfilId))
+            {
+                <div class="sidebar-perfil @(perfilDestino?.Id == perfil.Id ? "active" : "")"
+                     @onclick="() => SeleccionarDestino(perfil)">
+                    @if (!string.IsNullOrEmpty(perfil.Imagen))
+                    {
+                        <img src="http://localhost:5134/@perfil.Imagen" alt="@perfil.Nombre" />
+                    }
+                    else
+                    {
+                        <div class="sidebar-placeholder">👤</div>
+                    }
+                    <span>@perfil.Nombre</span>
+                </div>
+            }
+        </div>
+
+        <div class="chat-content">
+            @if (perfilDestino == null)
+            {
+                <div class="no-chat-selected">
+                    <div class="no-chat-icon">💬</div>
+                    <h3>Selecciona un perfil</h3>
+                    <p>Elige un destinatario para ver la conversación</p>
+                </div>
+            }
+            else
+            {
+                <div class="mensajes-container">
+                    @if (cargandoMensajes)
+                    {
+                        <div class="loading-messages">
+                            <div class="spinner-small"></div>
+                            <p>Cargando mensajes...</p>
+                        </div>
+                    }
+                    else if (!comentarios.Any())
+                    {
+                        <div class="no-messages">
+                            <p>No hay mensajes aún. ¡Envía el primero!</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var comentario in comentarios)
+                        {
+                            <div class="mensaje @(comentario.PabloReyesEmisorId == PerfilId ? "enviado" : "recibido")">
+                                <div class="mensaje-contenido">
+                                    <p>@comentario.Contenido</p>
+                                    <span class="mensaje-fecha">@comentario.Fecha.ToLocalTime().ToString("HH:mm")</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="chat-input-container">
+                    <input @bind="nuevoMensaje"
+                           @bind:event="oninput"
+                           @onkeydown="HandleKeyDown"
+                           placeholder="Escribe un mensaje..."
+                           class="chat-input"
+                           maxlength="500"
+                           disabled="@enviandoMensaje" />
+                    <button @onclick="EnviarMensaje"
+                            class="btn-enviar"
+                            disabled="@(string.IsNullOrWhiteSpace(nuevoMensaje) || enviandoMensaje)">
+                        @if (enviandoMensaje)
+                        {
+                            <span>⏳</span>
+                        }
+                        else
+                        {
+                            <span>➤</span>
+                        }
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int PerfilId { get; set; }
+
+    private Pabloreyes? perfilActual;
+    private List<Pabloreyes>? perfiles;
+    private Pabloreyes? perfilDestino;
+    private List<Comentario> comentarios = new();
+    private string nuevoMensaje = string.Empty;
+    private bool cargandoMensajes = false;
+    private bool enviandoMensaje = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine($"🚀 Iniciando chat para perfil {PerfilId}");
+        perfilActual = await PabloReyesService.ObtenerPorIdAsync(PerfilId);
+        perfiles = await PabloReyesService.ObtenerTodosAsync();
+
+        if (perfilActual == null)
+        {
+            Console.WriteLine($"❌ No se encontró el perfil {PerfilId}");
+            Navigation.NavigateTo("/perfiles");
+        }
+        else
+        {
+            Console.WriteLine($"✅ Perfil actual: {perfilActual.Nombre}");
+        }
+    }
+
+    private async Task SeleccionarDestino(Pabloreyes perfil)
+    {
+        Console.WriteLine($"👤 Seleccionado destinatario: {perfil.Nombre}");
+        perfilDestino = perfil;
+        await CargarConversacion();
+    }
+
+    private async Task CargarConversacion()
+    {
+        if (perfilDestino == null) return;
+
+        cargandoMensajes = true;
+        try
+        {
+            Console.WriteLine($"📩 Cargando conversación entre {PerfilId} y {perfilDestino.Id}");
+            comentarios = await ComentarioService.ObtenerConversacionAsync(PerfilId, perfilDestino.Id);
+            Console.WriteLine($"✅ {comentarios.Count} mensajes cargados");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error al cargar conversación: {ex.Message}");
+        }
+        finally
+        {
+            cargandoMensajes = false;
+        }
+    }
+
+    private async Task EnviarMensaje()
+    {
+        if (string.IsNullOrWhiteSpace(nuevoMensaje) || perfilDestino == null || enviandoMensaje)
+            return;
+
+        enviandoMensaje = true;
+        try
+        {
+            var comentario = new Comentario
+            {
+                Contenido = nuevoMensaje.Trim(),
+                PabloReyesEmisorId = PerfilId,
+                PabloReyesReceptorId = perfilDestino.Id
+            };
+
+            Console.WriteLine($"📤 Enviando mensaje de {PerfilId} a {perfilDestino.Id}: '{comentario.Contenido}'");
+            var resultado = await ComentarioService.EnviarComentarioAsync(comentario);
+
+            if (resultado != null)
+            {
+                Console.WriteLine($"✅ Mensaje enviado con ID: {resultado.Id}");
+                nuevoMensaje = string.Empty;
+                await CargarConversacion();
+            }
+            else
+            {
+                Console.WriteLine("❌ No se pudo enviar el mensaje");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error al enviar mensaje: {ex.Message}");
+        }
+        finally
+        {
+            enviandoMensaje = false;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(nuevoMensaje) && !enviandoMensaje)
+        {
+            await EnviarMensaje();
+        }
+    }
+
+    private void Volver()
+    {
+        Navigation.NavigateTo("/perfiles");
+    }
+}
